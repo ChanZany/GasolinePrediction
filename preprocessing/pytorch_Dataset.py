@@ -26,6 +26,7 @@ args = Arguments()
 
 class GasolineDataset(Dataset):
     def __init__(self,
+                 #todo 清洗后的数据路径
                  file_path="../data/train_data.csv",
                  transform=None,
                  one_hot=False):

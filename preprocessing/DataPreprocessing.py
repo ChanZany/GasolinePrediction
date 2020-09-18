@@ -10,15 +10,13 @@ from DataCleanUtils import data_clean
 df = pd.read_csv("../data/sample.csv", index_col=['编号', '时间']).iloc[:, 0:-1]
 df = df.loc[df.notnull().all(axis=1)]
 
-
 # TODO 准备训练数据集
 ori_features = np.hstack((df.iloc[:, 0:9].values, df.iloc[:, 10:].values))
 # ori_features = df.iloc[:, 1:]
 ori_labels = df.iloc[:, 9].values
 
 # todo 清洗数据，应该还要返回保留行的下标，对应的label才能取出来
-ori_features,ori_labels = data_clean(ori_features,ori_labels)
-
+ori_features, ori_labels = data_clean(ori_features, ori_labels)
 
 # todo 特征归一化
 std = StandardScaler()
@@ -50,5 +48,8 @@ model = LinearRegression()
 model.fit(X_train, y_train)
 score = model.score(X_test, y_test)
 print(score)
-print(model.predict(X_test[0].reshape(1,-1)))
-print(y_test[0])
+for i in range(len(y_test)):
+    print(
+        "predict:" + model.predict(X_test[0].reshape(1, -1))[0],
+        "target:" + y_test[0]
+    )
