@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
+from sklearn.metrics import r2_score
 
 from pytorch_Dataset import GasolineDataset
 
@@ -27,11 +28,11 @@ args = Arguments()
 
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, input_n, hidden1_n, hidden2_n, output_n):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(15, 10)
-        self.fc2 = nn.Linear(10, 5)
-        self.fc3 = nn.Linear(5, 1)
+        self.fc1 = nn.Linear(input_n, hidden1_n)
+        self.fc2 = nn.Linear(hidden1_n, hidden2_n)
+        self.fc3 = nn.Linear(hidden2_n, output_n)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -39,7 +40,7 @@ class Net(nn.Module):
         return self.fc3(x)
 
 
-dataset = GasolineDataset()
+dataset = GasolineDataset(file_path="../data/train2_data.csv")
 train_loader = DataLoader(dataset=dataset, batch_size=5, shuffle=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,17 +48,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):  # <-- now it is a distributed dataset
-        # model.send(data.location)  # <-- NEW: send the model to the right location
+    for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = F.mse_loss(output, target.reshape(output.shape[0], output.shape[1]))
         loss.backward()
         optimizer.step()
-        # model.get()  # <-- NEW: get the model back
         if batch_idx % args.log_interval == 0:
-            # loss = loss.get()  # <-- NEW: get the loss back
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * args.batch_size, len(train_loader) * args.batch_size,
                        100. * batch_idx / len(train_loader), loss.item()))
@@ -66,16 +64,14 @@ def train(args, model, device, train_loader, optimizer, epoch):
 def test(args, model, device, test_loader):
     model.eval()
     test_loss = 0
-    correct = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += F.mse_loss(output,
-                                    target.reshape(output.shape[0], output.shape[1])).item()  # sum up batch loss
-            pred = output.argmax(1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            loss = F.mse_loss(output, target.reshape(output.shape[0], output.shape[1])).item()
+            test_loss += loss  # sum up batch loss
 
+    correct = r2_score(output.cpu().numpy(), target.view_as(output).cpu().numpy())
     test_loss /= len(test_loader.dataset)
 
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
@@ -84,17 +80,13 @@ def test(args, model, device, test_loader):
 
 
 if __name__ == '__main__':
-    model = Net().to(device)
+    model = Net(20, 15, 7, 1).to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
         test(args, model, device, train_loader)
-
-    # for batch_idx, (data, target) in enumerate(train_loader):
-    #     print(data)
-    #     print(target)
 
     if (args.save_model):
         torch.save(model.state_dict(), "gasoline .ckpt")

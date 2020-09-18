@@ -35,7 +35,7 @@ X = np.array(features, dtype=np.float32)
 y = np.array(ori_labels, dtype=np.float32)
 
 # todo 将清洗后的数据写入磁盘
-# pd.DataFrame(np.hstack((X, y.reshape(X.shape[0], -1)))).to_csv("../data/train_data.csv", header=None, index=None)
+pd.DataFrame(np.hstack((X, y.reshape(X.shape[0], -1)))).to_csv("../data/train2_data.csv", header=None, index=None)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=666)
 
@@ -50,6 +50,6 @@ score = model.score(X_test, y_test)
 print(score)
 for i in range(len(y_test)):
     print(
-        "predict:" + model.predict(X_test[0].reshape(1, -1))[0],
-        "target:" + y_test[0]
+        "predict:", model.predict(X_test[i].reshape(1, -1 ))[0],
+        "\ttarget:", y_test[i]
     )
