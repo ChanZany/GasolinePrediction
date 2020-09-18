@@ -80,6 +80,7 @@ def test(args, model, device, test_loader):
 
 
 if __name__ == '__main__':
+    # TODO 注意这个输入20是与前面train_data的特征数(列数-1)应该是相同的
     model = Net(20, 15, 7, 1).to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
