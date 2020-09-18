@@ -2,6 +2,18 @@ import numpy as np
 import pandas as pd
 
 
+# 缺失值补全，补全依据是缺失的值认为与它上一行的数据一样,即每个时间段测一次
+def fill_nan(demo_df):
+    for indexs in demo_df.index:
+        for i in range(len(demo_df.loc[indexs].values)):
+            if (demo_df.loc[indexs].values[i] == 0):
+                # print(indexs, i)
+                # print(demo_df.loc[indexs].values[i])
+                # todo 取该列的平均值（可修改）
+                demo_df.loc[indexs].values[i] = np.mean(demo_df.iloc[:, i])
+                # print(demo_df.loc[indexs].values[i])
+
+
 # 使用肖维勒方法（等置信概率）剔除异常值
 def clean_bad(column):
     ave = np.mean(column)
@@ -9,21 +21,26 @@ def clean_bad(column):
     for i in range(0, len(column)):
         if (abs(column[i] - ave) > 3 * u):
             column[i] = None
-            print(i)
         else:
             continue
 
 
-df = pd.read_csv("../data/sample.csv", index_col=['编号', '时间']).iloc[:, 0:-1]
-df = df.loc[df.notnull().all(axis=1)]
-ori_features = pd.DataFrame(np.hstack((df.iloc[:, 0:9].values, df.iloc[:, 10:].values)))
-print(ori_features.shape)
-for i in range(0, len(ori_features)):
-    # print(ori_features[0]==0)
-    clean_bad(ori_features[i])
-    # print(ori_features[0]==0)
+def data_clean(data,target):
+    clean_data = pd.DataFrame(data)
+    fill_nan(clean_data)
+    for i in range(0, len(clean_data)):
+        clean_bad(clean_data[i])
 
-print(ori_features.shape)
+    cols = ~clean_data.isna().any(axis=1)
+    return clean_data[cols].values, target[cols]
 
-ori_features = ori_features.dropna()
-print(ori_features.shape)
+
+# 测试
+# df = pd.read_csv("../data/sample.csv", index_col=['编号', '时间']).iloc[:, 0:-1]
+# df = df.loc[df.notnull().all(axis=1)]
+# ori_features = np.hstack((df.iloc[:, 0:9].values, df.iloc[:, 10:].values))
+# ori_labels = df.iloc[:, 9].values
+# print(ori_features.shape)
+# clean_data,clean_target = data_clean(ori_features,ori_labels)
+# print(clean_data.shape)
+# print(clean_target.shape)
