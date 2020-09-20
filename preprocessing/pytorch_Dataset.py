@@ -5,6 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from sklearn.preprocessing import StandardScaler
+
+std_scaler = StandardScaler()
 
 
 class Arguments:
@@ -26,7 +29,7 @@ args = Arguments()
 
 class GasolineDataset(Dataset):
     def __init__(self,
-                 #todo 清洗后的数据路径
+                 # todo 清洗后的数据路径
                  file_path="../data/train_data.csv",
                  transform=None,
                  one_hot=False):
@@ -36,8 +39,14 @@ class GasolineDataset(Dataset):
         self.transform = transform
         df = pd.read_csv(file_path)
         df = df.loc[df.notnull().all(axis=1)]
-        self.data = df.iloc[:, 0:-1].to_numpy(dtype=np.float)
+        _data = df.iloc[:, 0:-1].to_numpy(dtype=np.float)
+
+        # todo 标准化数据
         _labels = df.iloc[:, -1].to_numpy(dtype=np.float)
+
+        std_scaler.fit(_data, _labels)
+        _data = std_scaler.transform(_data)
+        self.data = _data
         # TODO one hot 编码
         if one_hot:
             self.labels = np.array([[i - 1] for i in _labels], dtype=np.float)
@@ -105,7 +114,8 @@ def test(args, model, device, test_loader):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += F.mse_loss(output, target.reshape(output.shape[0], output.shape[1])).item()  # sum up batch loss
+            test_loss += F.mse_loss(output,
+                                    target.reshape(output.shape[0], output.shape[1])).item()  # sum up batch loss
             pred = output.argmax(1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 

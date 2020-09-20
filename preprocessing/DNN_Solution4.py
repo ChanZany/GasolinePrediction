@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -7,8 +6,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score
-
+from torch.autograd import Variable
 from pytorch_Dataset import GasolineDataset
+from LossFunction import My_loss
 
 
 class Arguments:
@@ -17,7 +17,7 @@ class Arguments:
         self.batch_size = 10
         self.test_batch_size = 50
         self.epochs = epochs
-        self.lr = 0.01
+        self.lr = 0.0001
         self.momentum = 0.5  # 动量
         self.no_cuda = False  # 默认使用cuda(显卡计算)
         self.seed = 1  # 随机数种子
@@ -27,7 +27,7 @@ class Arguments:
 
 args = Arguments()
 
-
+loss_history = []
 class Net(nn.Module):
     def __init__(self, input_n, hidden1_n, hidden2_n, output_n):
         super(Net, self).__init__()
@@ -40,13 +40,14 @@ class Net(nn.Module):
         x = self.fc2(x)
         return self.fc3(x)
 
+
 # TODO 每次修改完数据记得更新数据的路径
-dataset = GasolineDataset(file_path="../data/train2_data.csv")
+dataset = GasolineDataset(file_path="../data/train3_data.csv")
 train_loader = DataLoader(dataset=dataset, batch_size=5, shuffle=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+criterion = My_loss()
 
-loss_history=[]
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -54,7 +55,12 @@ def train(args, model, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.mse_loss(output, target.reshape(output.shape[0], output.shape[1]))
+        # loss = F.mse_loss(output, target.reshape(output.shape[0], output.shape[1]))
+        # TODO 重新定义损失函数
+        # |y' - y|/y=0.3==> |y'-y| = 0.3y ==> |y'-y|-0.3y
+        loss = criterion(output, target)
+        # loss = Variable((torch.abs(output - target)/target).sum(), requires_grad=True)
+
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
@@ -63,8 +69,6 @@ def train(args, model, device, train_loader, optimizer, epoch):
                        100. * batch_idx / len(train_loader), loss.item()))
             loss_history.append(loss.item())
 
-
-
 def test(args, model, device, test_loader):
     model.eval()
     test_loss = 0
@@ -72,9 +76,8 @@ def test(args, model, device, test_loader):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            loss = F.mse_loss(output, target.reshape(output.shape[0], output.shape[1])).item()
+            loss = criterion(output, target)
             test_loss += loss  # sum up batch loss
-
 
     correct = r2_score(output.cpu().numpy(), target.view_as(output).cpu().numpy())
     test_loss /= len(test_loader.dataset)
@@ -84,26 +87,21 @@ def test(args, model, device, test_loader):
         100. * correct / len(test_loader.dataset)))
 
 
-
 if __name__ == '__main__':
     # TODO 注意这个输入20是与前面train_data的特征数(列数-1)应该是相同的
-    model = Net(20, 15, 7, 1).to(device)
+    model = Net(29, 15, 7, 1).to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
         test(args, model, device, train_loader)
-        #plt.plot(args.epochs, a, 'o-')
-        #plt.show()
 
-    # np.save("./loss_historys/Solution3.loss", loss_history)
-    np.array(loss_history).tofile("./loss_historys/Solution3.loss")
-
+    np.array(loss_history).tofile("./loss_historys/Solution4.loss")
 
     x = [i for i in range(len(loss_history))]
     y = loss_history
-    plt.plot(x,y)
+    plt.plot(x, y)
     plt.show()
 
     if (args.save_model):
